@@ -1,6 +1,8 @@
 package main
 
 import (
+	post "appointy/post"
+	user "appointy/users"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,23 +12,9 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-type User struct {
-	Name  string `json:"name" bson:"name"`
-	ID    string `json:"id" bson:"id"`
-	Email string `json:"email" bson:"email"`
-	Posts []Post `json:"posts" bson:"posts"`
-}
-type Post struct {
-	userID   string              `jsong:"userID" bson:"userID"`
-	ID       string              `json:"id" bson:"id"`
-	Caption  string              `json:"caption" bson:"caption"`
-	PostTime primitive.Timestamp `json:"post_time" bson:"post_time"`
-}
 
 var client *mongo.Client
 
@@ -36,7 +24,7 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 
 func CreateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("content-type", "application/json")
-	var user User
+	user := new(user.User)
 	json.NewDecoder(r.Body).Decode(&user)
 	collection := client.Database("api").Collection("users")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
@@ -46,7 +34,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 
 func ListUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("content-type", "application/json")
-	var users []User
+	var users []user.User
 	collection := client.Database("api").Collection("users")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	res, err := collection.Find(ctx, bson.M{})
@@ -57,7 +45,7 @@ func ListUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer res.Close(ctx)
 	for res.Next(ctx) {
-		var user User
+		var user user.User
 		res.Decode(&user)
 		users = append(users, user)
 	}
@@ -92,11 +80,11 @@ func Serve(w http.ResponseWriter, r *http.Request) {
 }
 func CreatePost(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("content-type", "application/json")
-	var post Post
+	post := new(post.Post)
 	json.NewDecoder(r.Body).Decode(&post)
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	collection := client.Database("api").Collection("users")
-	res, err := collection.UpdateOne(ctx, bson.M{"id": post.userID},
+	res, err := collection.UpdateOne(ctx, bson.M{"id": post.UserID},
 		bson.D{
 			{Key: "$set", Value: bson.D{{Key: "posts", Value: post}}},
 		})
@@ -108,10 +96,10 @@ func CreatePost(w http.ResponseWriter, r *http.Request) {
 }
 func ListPost(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("content-type", "application/json")
-	var post Post
+	post := new(post.Post)
 	collection := client.Database("api").Collection("users")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	res, err := collection.Find(ctx, bson.M{"posts.id": r.URL.Path.rsplit('/', 1)})
+	res, err := collection.Find(ctx, bson.M{"posts.id": r.URL.Path})
 	if err != nil {
 		w.WriteHeader(404)
 		w.Write([]byte(`message: ` + err.Error()))
